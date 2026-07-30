@@ -1,0 +1,14 @@
+{
+  "name": "labasad-office-quest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Juego interactivo pixel-art para la presentación final de prácticas en LABASAD",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1"
+  }
+}
