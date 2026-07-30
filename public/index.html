@@ -164,15 +164,15 @@ function renderReception(){
     </div>
   `);
 
-  const qrTarget = wrapper.querySelector('#qr-holder');
+ const qrTarget = wrapper.querySelector('#qr-holder');
   new QRCode(qrTarget, {
-    text: window.location.origin + '/mando.html',
+    text: 'https://labasad-game.onrender.com/mando.html',
     width: 260,
     height: 260,
     colorDark: '#0b0b12',
     colorLight: '#ffffff'
   });
-
+  
   wrapper.querySelector('#startBtn').addEventListener('click', () => {
     socket.emit('start-game');
   });
