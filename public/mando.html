@@ -2,208 +2,129 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>LABASAD Office Quest — Mando</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LABASAD Quest — Mando</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 <style>
-  :root{
-    --ink:#0b0b12; --paper:#fff6e3; --blue:#2f6fed;
-    --orange:#ff8c42; --yellow:#ffd23f; --green:#3ddc84; --red:#ff4d5e;
-  }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
-  html,body{margin:0;height:100%;}
+  *{box-sizing:border-box; touch-action:none; user-select:none;}
   body{
-    font-family:'Press Start 2P', monospace;
-    background:#12121c;color:var(--paper);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    min-height:100vh;padding:16px;text-align:center;overflow:hidden;
+    margin:0; height:100vh; background:#12121c; color:#fff6e3;
+    font-family:'Press Start 2P', monospace; display:flex; flex-direction:column;
+    align-items:center; justify-content:space-between; padding:20px; overflow:hidden;
   }
-  h1{font-size:1.1rem;margin-bottom:12px;}
-  p{font-size:0.7rem;line-height:1.6;}
-  input{
-    font-family:'Press Start 2P', monospace;font-size:0.75rem;
-    padding:12px;border:3px solid var(--ink);width:80%;max-width:300px;margin:12px 0;
-    background:var(--paper);color:var(--ink);
+  .header{text-align:center; margin-top:10px;}
+  .player-info{font-size:0.8rem; color:#ffd23f; margin-top:6px;}
+  #joystick-zone{
+    width:220px; height:220px; position:relative;
+    background:rgba(255,255,255,0.05); border:4px dashed #ff8c42; border-radius:50%;
   }
-  .avatar-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:320px;margin:14px 0;}
-  .avatar-opt{
-    font-size:1.8rem;background:rgba(255,255,255,0.08);border:3px solid var(--ink);
-    padding:8px 10px;cursor:pointer;
+  #action-btn{
+    width:100%; max-width:280px; height:80px; background:#ff4d5e;
+    border:4px solid #0b0b12; box-shadow:0 6px 0 #0b0b12; color:#fff;
+    font-family:'Press Start 2P', monospace; font-size:1.1rem; display:none;
   }
-  .avatar-opt.selected{background:var(--yellow);}
-  button.pixel-btn{
-    font-family:'Press Start 2P', monospace;font-size:0.85rem;
-    padding:14px 22px;background:var(--orange);color:var(--ink);
-    border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);cursor:pointer;margin-top:10px;
+  #action-btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
+  .login-box{display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px; margin:auto;}
+  input, select{
+    padding:14px; font-family:'Press Start 2P', monospace; font-size:0.7rem;
+    background:#fff6e3; border:4px solid #0b0b12;
   }
-  button.pixel-btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink);}
-
-  #tapBtn{
-    width:80vw;height:80vw;max-width:320px;max-height:320px;border-radius:50%;
-    background:radial-gradient(circle at 35% 30%, var(--yellow), var(--orange) 70%);
-    border:6px solid var(--ink); box-shadow:0 10px 0 var(--ink);
-    font-size:1.3rem;color:var(--ink);cursor:pointer;
-  }
-  #tapBtn:active{transform:translateY(6px); box-shadow:0 4px 0 var(--ink);}
-  #tapBtn:disabled{opacity:0.4;background:#666;}
-
-  .bar-outer{width:90%;max-width:320px;height:26px;background:#000;border:3px solid var(--ink);margin:16px 0;}
-  .bar-inner{height:100%;background:var(--green);width:0%;transition:width .1s;}
-
-  .onfire-badge{font-size:2rem;animation:flicker .3s infinite alternate;}
-  @keyframes flicker{from{transform:scale(1) rotate(-3deg);}to{transform:scale(1.15) rotate(3deg);}}
 </style>
 </head>
 <body>
-<div id="app"></div>
+
+<div id="login-screen" class="login-box">
+  <h2 style="font-size:0.9rem; text-align:center;">CREA TU PERSONAJE</h2>
+  <input type="text" id="username" placeholder="Tu Nombre" maxlength="10">
+  <select id="avatarSelect">
+    <option value="🕹️">🕹️ Gamer</option>
+    <option value="🦊">🦊 Zorro Pixel</option>
+    <option value="👾">👾 Alien</option>
+    <option value="🤖">🤖 Robot</option>
+    <option value="🚀">🚀 Cohete</option>
+  </select>
+  <button id="joinBtn" style="padding:16px; background:#3ddc84; font-family:'Press Start 2P'; border:4px solid #0b0b12;">ENTRAR AL MAPA</button>
+</div>
+
+<div id="game-controls" style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:space-between;">
+  <div class="header">
+    <div style="font-size:0.6rem;">CONTROLLER 2D</div>
+    <div id="playerDisplay" class="player-info"></div>
+  </div>
+
+  <!-- ZONA DEL JOYSTICK PARA MOVERSE POR EL MAPA -->
+  <div id="joystick-container">
+    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.7;">USA EL JOYSTICK PARA MOVERTE</p>
+    <div id="joystick-zone"></div>
+  </div>
+
+  <!-- BOTÓN QUE APARECE SOLO EN LOS RETOS -->
+  <button id="action-btn">¡PULSA RÁPIDO!</button>
+
+  <div style="font-size:0.5rem; opacity:0.4;">LABASAD QUEST 2026</div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-let currentState = null;
-let myPlayer = null;
-let joined = false;
-let selectedAvatar = null;
+let player = null;
+let joystick = null;
 
-const AVATARS = ['🧑‍💻','👩‍💻','🧑‍💼','👩‍💼','🤖','📎','🕶️','🎧'];
-
-socket.on('joined', (player) => {
-  myPlayer = player;
-  joined = true;
-  render();
+document.getElementById('joinBtn').addEventListener('click', () => {
+  const name = document.getElementById('username').value.trim() || 'Jugador';
+  const avatar = document.getElementById('avatarSelect').value;
+  player = { name, avatar };
+  
+  socket.emit('join-game', player);
+  
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('game-controls').style.display = 'flex';
+  document.getElementById('playerDisplay').innerText = `${avatar} ${name}`;
+  
+  initJoystick();
 });
 
+function initJoystick() {
+  joystick = nipplejs.create({
+    zone: document.getElementById('joystick-zone'),
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#ffd23f',
+    size: 140
+  });
+
+  // Enviar vector de movimiento en tiempo real al servidor
+  joystick.on('move', (evt, data) => {
+    if (data && data.vector) {
+      socket.emit('player-move', { x: data.vector.x, y: -data.vector.y });
+    }
+  });
+
+  joystick.on('end', () => {
+    socket.emit('player-move', { x: 0, y: 0 });
+  });
+}
+
+// Escuchar cambios de fase (Mapa vs Reto)
 socket.on('state', (state) => {
-  currentState = state;
-  if (joined) myPlayer = state.players[socket.id] || myPlayer;
-  render();
+  const joyContainer = document.getElementById('joystick-container');
+  const actionBtn = document.getElementById('action-btn');
+  
+  // Si estamos en una sala de reto (2, 3, 4), ocultamos el joystick y mostramos el botón de pulsación
+  if (state.room >= 2 && state.room <= 4 && state.inChallenge) {
+    joyContainer.style.display = 'none';
+    actionBtn.style.display = 'block';
+  } else {
+    joyContainer.style.display = 'block';
+    actionBtn.style.display = 'none';
+  }
 });
 
-function el(html){
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  return div.firstElementChild;
-}
-
-function render(){
-  const app = document.getElementById('app');
-  app.innerHTML = '';
-
-  if (!joined) {
-    app.appendChild(renderJoinScreen());
-    return;
-  }
-  if (!currentState) {
-    app.appendChild(el(`<p>Conectando...</p>`));
-    return;
-  }
-
-  const room = currentState.room;
-  if (room === 1) app.appendChild(renderWaiting());
-  else if ([2,3,4].includes(room)) app.appendChild(renderChallenge(room));
-  else app.appendChild(renderLookAtScreen());
-}
-
-// ---------- PANTALLA DE REGISTRO ----------
-function renderJoinScreen(){
-  const wrapper = el(`
-    <div>
-      <h1>🏢 OFFICE QUEST</h1>
-      <p>Introduce tu nombre y elige tu avatar:</p>
-      <input id="nameInput" maxlength="14" placeholder="Tu nombre">
-      <div class="avatar-grid" id="avatarGrid">
-        ${AVATARS.map(a => `<div class="avatar-opt" data-avatar="${a}">${a}</div>`).join('')}
-      </div>
-      <button class="pixel-btn" id="joinBtn">✅ ENTRAR AL JUEGO</button>
-    </div>
-  `);
-
-  wrapper.querySelectorAll('.avatar-opt').forEach(optEl => {
-    optEl.addEventListener('click', () => {
-      wrapper.querySelectorAll('.avatar-opt').forEach(o => o.classList.remove('selected'));
-      optEl.classList.add('selected');
-      selectedAvatar = optEl.dataset.avatar;
-    });
-  });
-
-  wrapper.querySelector('#joinBtn').addEventListener('click', () => {
-    const name = wrapper.querySelector('#nameInput').value.trim() || 'Jugador';
-    const avatar = selectedAvatar || AVATARS[Math.floor(Math.random()*AVATARS.length)];
-    socket.emit('join-player', { name, avatar });
-  });
-
-  return wrapper;
-}
-
-// ---------- SALA 1: ESPERANDO ----------
-function renderWaiting(){
-  return el(`
-    <div>
-      <h1>${myPlayer ? myPlayer.avatar : '🧑‍💻'}</h1>
-      <p>¡Ya estás dentro, ${myPlayer ? myPlayer.name : ''}!</p>
-      <p>Mira la pantalla grande...<br>Esperando a que empiece la aventura.</p>
-    </div>
-  `);
-}
-
-// ---------- SALAS RETO ----------
-const CHALLENGE_LABELS = {
-  2: '💻 ¡Pulsa rápido!',
-  3: '📝 ¡Carrera de toques!',
-  4: '☕ ¡No vuelques el café!'
-};
-
-function renderChallenge(room){
-  const winner = currentState.winners[room];
-  const taps = myPlayer ? myPlayer.taps : 0;
-  const pct = Math.min(100, Math.round((taps/50)*100));
-  const amIWinner = winner && myPlayer && winner.id === myPlayer.id;
-
-  if (winner) {
-    return el(`
-      <div>
-        <h1>${amIWinner ? '🏆 ¡GANASTE!' : '⏳ Reto terminado'}</h1>
-        <p>${amIWinner
-          ? `¡Desbloqueaste el logro:<br><b>${winner.achievement}</b>!`
-          : `${winner.name} ha ganado este reto.<br>Prepárate para la siguiente sala.`}</p>
-        ${myPlayer && myPlayer.onFire ? `<div class="onfire-badge">🔥</div>` : ''}
-      </div>
-    `);
-  }
-
-  const wrapper = el(`
-    <div>
-      <h1>${CHALLENGE_LABELS[room]}</h1>
-      <div class="bar-outer"><div class="bar-inner" id="barInner" style="width:${pct}%;"></div></div>
-      <p id="tapCount">${taps} / 50</p>
-      <button id="tapBtn">TAP!</button>
-    </div>
-  `);
-
-  const btn = wrapper.querySelector('#tapBtn');
-  btn.addEventListener('click', () => {
-    if (navigator.vibrate) navigator.vibrate(15);
-    socket.emit('tap');
-  });
-
-  return wrapper;
-}
-
-// ---------- SALAS 5 y 6 ----------
-function renderLookAtScreen(){
-  const achievements = myPlayer && myPlayer.achievements.length
-    ? myPlayer.achievements.map(a => `🏅 ${a}`).join('<br>')
-    : 'Sin logros esta vez, ¡pero lo diste todo!';
-
-  return el(`
-    <div>
-      <h1>👀 Mira la pantalla</h1>
-      <p>${myPlayer ? myPlayer.avatar + ' ' + myPlayer.name : ''}</p>
-      <p>${achievements}</p>
-    </div>
-  `);
-}
+document.getElementById('action-btn').addEventListener('click', () => {
+  socket.emit('tap');
+});
 </script>
 </body>
 </html>
