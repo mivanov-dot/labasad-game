@@ -1,116 +1,122 @@
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
-
-const PORT = process.env.PORT || 3000;
-const TAP_GOAL = 50;
-
-// Salas: 1 Recepción | 2 HubSpot | 3 SEO/Polser | 4 Siroko Coffee | 5 Resumen | 6 Despedida
-const CHALLENGE_ROOMS = [2, 3, 4];
-
-const ACHIEVEMENTS = {
-  2: 'Aprendiz de HubSpot',
-  3: 'Maestro del Algoritmo y Guardián de Polser',
-  4: 'Adicto al Café'
-};
-
-let gameState = {
-  room: 1,
-  players: {},   // socket.id -> { id, name, avatar, taps, achievements: [], onFire }
-  winners: {}    // roomNumber -> { id, name, avatar, achievement }
-};
+const io = new Server(server, {
+  cors: { origin: "*" }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-function broadcast() {
-  io.emit('state', gameState);
-}
+// ESTADO GLOBAL DEL JUEGO
+let gameState = {
+  room: 1,            // 1: Mapa Oficina, 2: Reto HubSpot, 3: Reto SEO, 4: Reto Siroko, 5: Resumen, 6: Despedida
+  inChallenge: false, // Indica si están dentro del minijuego de toques
+  players: {},
+  winners: {}
+};
 
-function resetTapsForChallenge() {
-  Object.values(gameState.players).forEach(p => { p.taps = 0; });
-}
+// Límites del mapa (en píxeles)
+const MAP_WIDTH = 800;
+const MAP_HEIGHT = 500;
 
-function advanceRoom() {
-  if (gameState.room >= 6) return;
-  gameState.room += 1;
-  if (CHALLENGE_ROOMS.includes(gameState.room)) {
-    resetTapsForChallenge();
-  }
-  broadcast();
-}
-
-function registerWinner(room, player) {
-  if (gameState.winners[room]) return; // ya hay ganador, evitar duplicados
-  const achievement = ACHIEVEMENTS[room] || null;
-
-  gameState.winners[room] = {
-    id: player.id,
-    name: player.name,
-    avatar: player.avatar,
-    achievement
-  };
-
-  if (achievement) player.achievements.push(achievement);
-  if (room === 4) player.onFire = true;
-
-  broadcast();
-  setTimeout(advanceRoom, 4000); // pequeña pausa para celebrar antes de avanzar
-}
+// Posición del Rombo Interactivo en el mapa
+const CHECKPOINT = { x: 400, y: 150, radius: 50 };
 
 io.on('connection', (socket) => {
+  console.log('Jugador conectado:', socket.id);
 
-  socket.on('join-player', ({ name, avatar }) => {
+  socket.on('join-game', (data) => {
     gameState.players[socket.id] = {
       id: socket.id,
-      name: (name || 'Jugador').toString().substring(0, 14),
-      avatar: avatar || '🧑‍💻',
+      name: data.name || 'Jugador',
+      avatar: data.avatar || '🕹️',
+      x: 350 + Math.random() * 100, // Aparecen en el centro de la oficina
+      y: 350 + Math.random() * 50,
       taps: 0,
-      achievements: [],
       onFire: false
     };
-    socket.emit('joined', gameState.players[socket.id]);
-    broadcast();
+    io.emit('state', gameState);
   });
 
-  socket.on('start-game', () => {
-    if (gameState.room === 1) advanceRoom();
+  // MOVIMIENTO CON JOYSTICK
+  socket.on('player-move', (dir) => {
+    const player = gameState.players[socket.id];
+    if (player && gameState.room === 1 && !gameState.inChallenge) {
+      const speed = 4;
+      player.x += dir.x * speed;
+      player.y += dir.y * speed;
+
+      // Limitar a los bordes de la pantalla
+      player.x = Math.max(30, Math.min(MAP_WIDTH - 30, player.x));
+      player.y = Math.max(30, Math.min(MAP_HEIGHT - 30, player.y));
+
+      // Detección de colisión con el Rombo Interactivo
+      const dist = Math.hypot(player.x - CHECKPOINT.x, player.y - CHECKPOINT.y);
+      if (dist < CHECKPOINT.radius) {
+        // Al tocar el rombo, entran al reto
+        gameState.inChallenge = true;
+        gameState.room = 2; // Primer reto: HubSpot
+      }
+
+      io.emit('state', gameState);
+    }
   });
 
+  // RETO DE PULSACIONES (TAPS)
   socket.on('tap', () => {
     const player = gameState.players[socket.id];
-    if (!player) return;
-    if (!CHALLENGE_ROOMS.includes(gameState.room)) return;
-    if (gameState.winners[gameState.room]) return; // el reto ya se ganó
+    if (player && gameState.inChallenge && gameState.room >= 2 && gameState.room <= 4) {
+      if (!gameState.winners[gameState.room]) {
+        player.taps += 1;
+        if (player.taps >= 25) player.onFire = true;
 
-    player.taps += 1;
+        // ¿Ganador de la sala?
+        if (player.taps >= 50) {
+          const achievements = {
+            2: 'Máster en Email Marketing & Secuencias',
+            3: 'Redactor SEO Senior & Polser Pro',
+            4: 'Barista de Siroko: Pulso de Acero ☕'
+          };
+          
+          gameState.winners[gameState.room] = {
+            id: player.id,
+            name: player.name,
+            avatar: player.avatar,
+            achievement: achievements[gameState.room]
+          };
 
-    if (player.taps >= TAP_GOAL) {
-      registerWinner(gameState.room, player);
-    } else {
-      broadcast();
+          // Pasar al siguiente nivel automáticamente tras 3.5 seg
+          setTimeout(() => {
+            if (gameState.room === 4) {
+              gameState.room = 5; // Ir a resumen
+              gameState.inChallenge = false;
+            } else {
+              gameState.room += 1; // Siguiente reto
+              // Resetear toques de los jugadores para el siguiente reto
+              Object.values(gameState.players).forEach(p => { p.taps = 0; p.onFire = false; });
+            }
+            io.emit('state', gameState);
+          }, 3500);
+        }
+      }
+      io.emit('state', gameState);
     }
   });
 
   socket.on('next-room', () => {
-    advanceRoom();
-  });
-
-  socket.on('restart-game', () => {
-    gameState = { room: 1, players: {}, winners: {} };
-    broadcast();
+    if (gameState.room === 5) gameState.room = 6;
+    io.emit('state', gameState);
   });
 
   socket.on('disconnect', () => {
     delete gameState.players[socket.id];
-    broadcast();
+    io.emit('state', gameState);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🏢 LABASAD Office Quest escuchando en el puerto ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Servidor 2D en puerto ${PORT}`));
