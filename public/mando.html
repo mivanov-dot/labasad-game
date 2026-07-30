@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>LABASAD Office Quest — Mando</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0b12; --paper:#fff6e3; --blue:#2f6fed;
+    --orange:#ff8c42; --yellow:#ffd23f; --green:#3ddc84; --red:#ff4d5e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:'Press Start 2P', monospace;
+    background:#12121c;color:var(--paper);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100vh;padding:16px;text-align:center;overflow:hidden;
+  }
+  h1{font-size:1.1rem;margin-bottom:12px;}
+  p{font-size:0.7rem;line-height:1.6;}
+  input{
+    font-family:'Press Start 2P', monospace;font-size:0.75rem;
+    padding:12px;border:3px solid var(--ink);width:80%;max-width:300px;margin:12px 0;
+    background:var(--paper);color:var(--ink);
+  }
+  .avatar-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:320px;margin:14px 0;}
+  .avatar-opt{
+    font-size:1.8rem;background:rgba(255,255,255,0.08);border:3px solid var(--ink);
+    padding:8px 10px;cursor:pointer;
+  }
+  .avatar-opt.selected{background:var(--yellow);}
+  button.pixel-btn{
+    font-family:'Press Start 2P', monospace;font-size:0.85rem;
+    padding:14px 22px;background:var(--orange);color:var(--ink);
+    border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);cursor:pointer;margin-top:10px;
+  }
+  button.pixel-btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink);}
+
+  #tapBtn{
+    width:80vw;height:80vw;max-width:320px;max-height:320px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--yellow), var(--orange) 70%);
+    border:6px solid var(--ink); box-shadow:0 10px 0 var(--ink);
+    font-size:1.3rem;color:var(--ink);cursor:pointer;
+  }
+  #tapBtn:active{transform:translateY(6px); box-shadow:0 4px 0 var(--ink);}
+  #tapBtn:disabled{opacity:0.4;background:#666;}
+
+  .bar-outer{width:90%;max-width:320px;height:26px;background:#000;border:3px solid var(--ink);margin:16px 0;}
+  .bar-inner{height:100%;background:var(--green);width:0%;transition:width .1s;}
+
+  .onfire-badge{font-size:2rem;animation:flicker .3s infinite alternate;}
+  @keyframes flicker{from{transform:scale(1) rotate(-3deg);}to{transform:scale(1.15) rotate(3deg);}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let currentState = null;
+let myPlayer = null;
+let joined = false;
+let selectedAvatar = null;
+
+const AVATARS = ['🧑‍💻','👩‍💻','🧑‍💼','👩‍💼','🤖','📎','🕶️','🎧'];
+
+socket.on('joined', (player) => {
+  myPlayer = player;
+  joined = true;
+  render();
+});
+
+socket.on('state', (state) => {
+  currentState = state;
+  if (joined) myPlayer = state.players[socket.id] || myPlayer;
+  render();
+});
+
+function el(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.firstElementChild;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  if (!joined) {
+    app.appendChild(renderJoinScreen());
+    return;
+  }
+  if (!currentState) {
+    app.appendChild(el(`<p>Conectando...</p>`));
+    return;
+  }
+
+  const room = currentState.room;
+  if (room === 1) app.appendChild(renderWaiting());
+  else if ([2,3,4].includes(room)) app.appendChild(renderChallenge(room));
+  else app.appendChild(renderLookAtScreen());
+}
+
+// ---------- PANTALLA DE REGISTRO ----------
+function renderJoinScreen(){
+  const wrapper = el(`
+    <div>
+      <h1>🏢 OFFICE QUEST</h1>
+      <p>Introduce tu nombre y elige tu avatar:</p>
+      <input id="nameInput" maxlength="14" placeholder="Tu nombre">
+      <div class="avatar-grid" id="avatarGrid">
+        ${AVATARS.map(a => `<div class="avatar-opt" data-avatar="${a}">${a}</div>`).join('')}
+      </div>
+      <button class="pixel-btn" id="joinBtn">✅ ENTRAR AL JUEGO</button>
+    </div>
+  `);
+
+  wrapper.querySelectorAll('.avatar-opt').forEach(optEl => {
+    optEl.addEventListener('click', () => {
+      wrapper.querySelectorAll('.avatar-opt').forEach(o => o.classList.remove('selected'));
+      optEl.classList.add('selected');
+      selectedAvatar = optEl.dataset.avatar;
+    });
+  });
+
+  wrapper.querySelector('#joinBtn').addEventListener('click', () => {
+    const name = wrapper.querySelector('#nameInput').value.trim() || 'Jugador';
+    const avatar = selectedAvatar || AVATARS[Math.floor(Math.random()*AVATARS.length)];
+    socket.emit('join-player', { name, avatar });
+  });
+
+  return wrapper;
+}
+
+// ---------- SALA 1: ESPERANDO ----------
+function renderWaiting(){
+  return el(`
+    <div>
+      <h1>${myPlayer ? myPlayer.avatar : '🧑‍💻'}</h1>
+      <p>¡Ya estás dentro, ${myPlayer ? myPlayer.name : ''}!</p>
+      <p>Mira la pantalla grande...<br>Esperando a que empiece la aventura.</p>
+    </div>
+  `);
+}
+
+// ---------- SALAS RETO ----------
+const CHALLENGE_LABELS = {
+  2: '💻 ¡Pulsa rápido!',
+  3: '📝 ¡Carrera de toques!',
+  4: '☕ ¡No vuelques el café!'
+};
+
+function renderChallenge(room){
+  const winner = currentState.winners[room];
+  const taps = myPlayer ? myPlayer.taps : 0;
+  const pct = Math.min(100, Math.round((taps/50)*100));
+  const amIWinner = winner && myPlayer && winner.id === myPlayer.id;
+
+  if (winner) {
+    return el(`
+      <div>
+        <h1>${amIWinner ? '🏆 ¡GANASTE!' : '⏳ Reto terminado'}</h1>
+        <p>${amIWinner
+          ? `¡Desbloqueaste el logro:<br><b>${winner.achievement}</b>!`
+          : `${winner.name} ha ganado este reto.<br>Prepárate para la siguiente sala.`}</p>
+        ${myPlayer && myPlayer.onFire ? `<div class="onfire-badge">🔥</div>` : ''}
+      </div>
+    `);
+  }
+
+  const wrapper = el(`
+    <div>
+      <h1>${CHALLENGE_LABELS[room]}</h1>
+      <div class="bar-outer"><div class="bar-inner" id="barInner" style="width:${pct}%;"></div></div>
+      <p id="tapCount">${taps} / 50</p>
+      <button id="tapBtn">TAP!</button>
+    </div>
+  `);
+
+  const btn = wrapper.querySelector('#tapBtn');
+  btn.addEventListener('click', () => {
+    if (navigator.vibrate) navigator.vibrate(15);
+    socket.emit('tap');
+  });
+
+  return wrapper;
+}
+
+// ---------- SALAS 5 y 6 ----------
+function renderLookAtScreen(){
+  const achievements = myPlayer && myPlayer.achievements.length
+    ? myPlayer.achievements.map(a => `🏅 ${a}`).join('<br>')
+    : 'Sin logros esta vez, ¡pero lo diste todo!';
+
+  return el(`
+    <div>
+      <h1>👀 Mira la pantalla</h1>
+      <p>${myPlayer ? myPlayer.avatar + ' ' + myPlayer.name : ''}</p>
+      <p>${achievements}</p>
+    </div>
+  `);
+}
+</script>
+</body>
+</html>
