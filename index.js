@@ -10,33 +10,32 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 let gameState = {
-  room: 1, // 1: Lobby, 2: Mapa Oficina, 3: Intro Reto, 4: Reto Taps, 5: Resumen, 6: Despedida
-  currentChallenge: 2, // 2: HubSpot, 3: SEO, 4: Siroko
+  room: 1,            // 1: Lobby QR, 2: Mapa Oficina, 3: Reto Activo, 4: Resumen, 5: Despedida
+  currentChallenge: 2,// 2: HubSpot, 3: SEO, 4: Siroko Coffee
   showIntro: false,
   inChallenge: false,
   players: {},
   winners: {}
 };
 
-// Checkpoints en coordenadas del mapa de la oficina
-const CHECKPOINTS = {
-  2: { x: 220, y: 320, name: 'HubSpot & CRM' },
-  3: { x: 580, y: 320, name: 'Redacción SEO' },
-  4: { x: 400, y: 150, name: 'Siroko Coffee' }
-};
-
-const CHARACTERS = ['char1', 'char2', 'char3', 'char4'];
-
 io.on('connection', (socket) => {
   socket.on('join-game', (data) => {
-    const charIndex = Object.keys(gameState.players).length % CHARACTERS.length;
+    const pCount = Object.keys(gameState.players).length;
+    const charNum = (pCount % 5) + 1; // Selecciona char1.png a char5.png
+    
+    // Posiciones fijas dentro de la oficina en pixel art
+    const positions = [
+      { x: 22, y: 68 }, { x: 42, y: 48 }, { x: 58, y: 48 },
+      { x: 42, y: 78 }, { x: 58, y: 78 }, { x: 80, y: 58 }
+    ];
+    const pos = positions[pCount % positions.length];
+
     gameState.players[socket.id] = {
       id: socket.id,
       name: data.name || 'Jugador',
-      sprite: CHARACTERS[charIndex],
-      x: 380 + Math.random() * 40,
-      y: 240 + Math.random() * 40,
-      moving: false,
+      charImg: `Personajes/char${charNum}.png`,
+      x: pos.x,
+      y: pos.y,
       taps: 0
     };
     io.emit('state', gameState);
@@ -44,31 +43,14 @@ io.on('connection', (socket) => {
 
   socket.on('start-game', () => {
     if (gameState.room === 1) {
-      gameState.room = 2; // Ir al Mapa
+      gameState.room = 2; // Entrar a la oficina
       io.emit('state', gameState);
     }
   });
 
-  socket.on('player-move', (dir) => {
-    const player = gameState.players[socket.id];
-    if (player && gameState.room === 2 && !gameState.showIntro && !gameState.inChallenge) {
-      const speed = 5;
-      player.x += dir.x * speed;
-      player.y += dir.y * speed;
-      player.moving = (dir.x !== 0 || dir.y !== 0);
-
-      // Límites mapa
-      player.x = Math.max(50, Math.min(750, player.x));
-      player.y = Math.max(80, Math.min(420, player.y));
-
-      // Comprobar si llega al checkpoint del reto activo
-      const targetCP = CHECKPOINTS[gameState.currentChallenge];
-      if (targetCP) {
-        const dist = Math.hypot(player.x - targetCP.x, player.y - targetCP.y);
-        if (dist < 45) {
-          gameState.showIntro = true; // Activar pantalla de contexto
-        }
-      }
+  socket.on('trigger-checkpoint', () => {
+    if (gameState.room === 2 && !gameState.showIntro && !gameState.inChallenge) {
+      gameState.showIntro = true;
       io.emit('state', gameState);
     }
   });
@@ -86,7 +68,7 @@ io.on('connection', (socket) => {
       if (!gameState.winners[ch]) {
         player.taps += 1;
 
-        if (player.taps >= 100) { // LÍMITE A 100 TAPS
+        if (player.taps >= 100) {
           const achievements = {
             2: 'Especialista en Automatización & CRM',
             3: 'Líder de Protocolos & Estrategia SEO',
@@ -96,7 +78,7 @@ io.on('connection', (socket) => {
           gameState.winners[ch] = {
             id: player.id,
             name: player.name,
-            sprite: player.sprite,
+            charImg: player.charImg,
             achievement: achievements[ch]
           };
 
@@ -107,7 +89,7 @@ io.on('connection', (socket) => {
             if (ch < 4) {
               gameState.currentChallenge += 1;
             } else {
-              gameState.room = 5; // Resumen final
+              gameState.room = 4; // Resumen de aprendizajes
             }
             io.emit('state', gameState);
           }, 4000);
@@ -118,7 +100,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('next-room', () => {
-    if (gameState.room === 5) gameState.room = 6;
+    if (gameState.room === 4) gameState.room = 5;
     io.emit('state', gameState);
   });
 
@@ -129,4 +111,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor listo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
