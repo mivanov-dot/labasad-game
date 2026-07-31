@@ -5,69 +5,51 @@
 <title>Mando — LABASAD Quest</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 <style>
   *{box-sizing:border-box; touch-action:none; user-select:none;}
   body{
     margin:0; height:100vh; background:#12121c; color:#fff6e3;
     font-family:'Press Start 2P', monospace; display:flex; flex-direction:column;
-    align-items:center; justify-content:space-between; padding:20px; overflow:hidden;
+    align-items:center; justify-content:space-between; padding:24px; text-align:center;
   }
-  .login-box{display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px; margin:auto; text-align:center;}
-  input{padding:14px; font-family:'Press Start 2P'; font-size:0.7rem; background:#fff6e3; border:4px solid #0b0b12;}
-  button.btn{padding:16px; background:#3ddc84; font-family:'Press Start 2P'; border:4px solid #0b0b12; box-shadow:0 5px 0 #0b0b12; cursor:pointer;}
-  button.btn:active{transform:translateY(3px); box-shadow:0 2px 0 #0b0b12;}
-  #joystick-zone{width:200px; height:200px; background:rgba(255,255,255,0.05); border:4px dashed #ff8c42; border-radius:50%;}
+  .login-box{display:flex; flex-direction:column; gap:16px; width:100%; max-width:320px; margin:auto;}
+  input{padding:16px; font-family:'Press Start 2P'; font-size:0.75rem; background:#fff6e3; border:4px solid #0b0b12; text-align:center;}
+  button.btn{
+    padding:20px; background:#3ddc84; font-family:'Press Start 2P'; border:4px solid #0b0b12;
+    box-shadow:0 6px 0 #0b0b12; cursor:pointer; font-size:0.8rem;
+  }
+  button.btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
   #action-btn{
-    width:100%; max-width:280px; height:120px; background:#ff4d5e;
-    border:6px solid #0b0b12; box-shadow:0 8px 0 #0b0b12; color:#fff;
-    font-family:'Press Start 2P'; font-size:1.2rem; display:none; border-radius:12px;
+    width:100%; max-width:300px; height:180px; background:#ff4d5e;
+    border:6px solid #0b0b12; box-shadow:0 10px 0 #0b0b12; color:#fff;
+    font-family:'Press Start 2P'; font-size:1.4rem; border-radius:16px; margin:auto;
   }
-  #action-btn:active{transform:translateY(6px); box-shadow:0 2px 0 #0b0b12; background:#e03e4f;}
+  #action-btn:active{transform:translateY(8px); box-shadow:0 2px 0 #0b0b12; background:#e03e4f;}
 </style>
 </head>
 <body>
 
 <div id="login-screen" class="login-box">
-  <h2 style="font-size:0.8rem;">REGISTRO DE JUGADOR</h2>
+  <h2 style="font-size:0.9rem; margin-bottom:12px;">CREA TU PERFIL</h2>
   <input type="text" id="username" placeholder="Tu Nombre" maxlength="10">
-  <button id="joinBtn" class="btn">¡ENTRAR AL JUEGO!</button>
+  <button id="joinBtn" class="btn">¡UNIRSE AL JUEGO!</button>
 </div>
 
 <div id="game-controls" style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:space-between;">
-  <div style="font-size:0.7rem; color:#ffd23f; margin-top:10px;" id="playerDisplay"></div>
+  <div style="font-size:0.75rem; color:#ffd23f; margin-top:10px;" id="playerDisplay"></div>
 
-  <div id="joystick-container">
-    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.8;">MUEVE TU PERSONAJE</p>
-    <div id="joystick-zone"></div>
+  <div id="status-msg" style="font-size:0.7rem; line-height:1.8; margin:auto; padding:20px; background:rgba(255,255,255,0.05); border:3px dashed #ff8c42;">
+    👀 MIRA LA PANTALLA PRINCIPAL
   </div>
 
-  <button id="action-btn">¡PULSA 100 VECES!</button>
+  <button id="action-btn" style="display:none;">¡PULSA<br>RÁPIDO!</button>
 
-  <div style="font-size:0.5rem; opacity:0.4;">LABASAD QUEST</div>
+  <div style="font-size:0.5rem; opacity:0.4;">LABASAD QUEST 2026</div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-let joystick = null;
-
-// Audio de tap sintético WebAudio
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playTapSound() {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.08);
-}
 
 document.getElementById('joinBtn').addEventListener('click', () => {
   const name = document.getElementById('username').value.trim() || 'Jugador';
@@ -75,37 +57,31 @@ document.getElementById('joinBtn').addEventListener('click', () => {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-controls').style.display = 'flex';
   document.getElementById('playerDisplay').innerText = `👤 ${name}`;
-  initJoystick();
 });
 
-function initJoystick() {
-  joystick = nipplejs.create({
-    zone: document.getElementById('joystick-zone'),
-    mode: 'static', position: { left: '50%', top: '50%' },
-    color: '#ffd23f', size: 130
-  });
-  joystick.on('move', (evt, data) => {
-    if (data && data.vector) socket.emit('player-move', { x: data.vector.x, y: -data.vector.y });
-  });
-  joystick.on('end', () => socket.emit('player-move', { x: 0, y: 0 }));
-}
-
 socket.on('state', (state) => {
-  const joyContainer = document.getElementById('joystick-container');
+  const statusMsg = document.getElementById('status-msg');
   const actionBtn = document.getElementById('action-btn');
   
   if (state.inChallenge) {
-    joyContainer.style.display = 'none';
+    statusMsg.style.display = 'none';
     actionBtn.style.display = 'block';
   } else {
-    joyContainer.style.display = 'block';
+    statusMsg.style.display = 'block';
     actionBtn.style.display = 'none';
+    
+    if (state.room === 2 && !state.showIntro) {
+      statusMsg.innerText = '📍 PREPÁRATE...\n¡Toca la pantalla grande para iniciar la misión!';
+    } else if (state.showIntro) {
+      statusMsg.innerText = '📜 LEYENDO INSTRUCCIONES EN PANTALLA...';
+    } else {
+      statusMsg.innerText = '👀 MIRA LA PANTALLA PRINCIPAL';
+    }
   }
 });
 
 document.getElementById('action-btn').addEventListener('click', () => {
-  playTapSound();
-  if (navigator.vibrate) navigator.vibrate(30);
+  if (navigator.vibrate) navigator.vibrate(25);
   socket.emit('tap');
 });
 </script>
