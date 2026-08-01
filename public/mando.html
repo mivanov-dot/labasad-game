@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<!-- LIBRERÍA DEL JOYSTICK (NIPPLEJS) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 <style>
   *{box-sizing:border-box; touch-action:none; user-select:none;}
@@ -25,9 +26,12 @@
   }
   button.btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
   
+  #joystick-container{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; margin:auto;
+  }
   #joystick-zone{
-    width:220px; height:220px; position:relative;
-    background:rgba(255,255,255,0.05); border:4px dashed #ff8c42; border-radius:50%;
+    width:200px; height:200px; position:relative;
+    background:rgba(255,255,255,0.08); border:4px dashed #ff8c42; border-radius:50%;
   }
 
   #action-btn{
@@ -59,6 +63,12 @@
     <div id="roleDisplay" style="font-size:0.5rem; opacity:0.8; margin-top:4px;"></div>
   </div>
 
+  <!-- JOYSTICK MOVIBLE -->
+  <div id="joystick-container">
+    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.8;">MUEVE TU PERSONAJE</p>
+    <div id="joystick-zone"></div>
+  </div>
+
   <!-- BOTÓN PARA PULSACIONES -->
   <button id="action-btn" style="display:none;">¡PULSA<br>RÁPIDO!</button>
 
@@ -69,6 +79,7 @@
 <script>
 const socket = io();
 let joystick = null;
+let lastVector = { x: 0, y: 0 };
 
 document.getElementById('joinBtn').addEventListener('click', () => {
   const name = document.getElementById('username').value.trim() || 'Jugador';
@@ -83,25 +94,35 @@ document.getElementById('joinBtn').addEventListener('click', () => {
   document.getElementById('playerDisplay').innerText = `${avatar} ${name}`;
   document.getElementById('roleDisplay').innerText = role;
 
-  initJoystick();
+  setTimeout(initJoystick, 100);
 });
 
 function initJoystick() {
+  const zone = document.getElementById('joystick-zone');
+  if (!zone) return;
+
   joystick = nipplejs.create({
-    zone: document.getElementById('joystick-zone'),
+    zone: zone,
     mode: 'static',
     position: { left: '50%', top: '50%' },
     color: '#ffd23f',
-    size: 140
+    size: 130
   });
 
   joystick.on('move', (evt, data) => {
     if (data && data.vector) {
-      socket.emit('player-move', { x: data.vector.x, y: -data.vector.y });
+      const vx = Math.round(data.vector.x * 100) / 100;
+      const vy = Math.round(-data.vector.y * 100) / 100;
+      // Solo enviamos si el vector ha cambiado para evitar lag de red
+      if (vx !== lastVector.x || vy !== lastVector.y) {
+        lastVector = { x: vx, y: vy };
+        socket.emit('player-move', lastVector);
+      }
     }
   });
 
   joystick.on('end', () => {
+    lastVector = { x: 0, y: 0 };
     socket.emit('player-move', { x: 0, y: 0 });
   });
 }
@@ -114,7 +135,7 @@ socket.on('state', (state) => {
     joyContainer.style.display = 'none';
     actionBtn.style.display = 'block';
   } else {
-    joyContainer.style.display = 'block';
+    joyContainer.style.display = 'flex';
     actionBtn.style.display = 'none';
   }
 });
