@@ -30,7 +30,7 @@
   /* ---- MAPA COLORIDO DE LA OFICINA ---- */
   #game-map{
     width:850px; height:520px; background:#1e1e2f; border:8px solid var(--paper);
-    box-shadow:0 0 30px rgba(0,0,0,0.9); position:relative; overflow:hidden; cursor:pointer;
+    box-shadow:0 0 30px rgba(0,0,0,0.9); position:relative; overflow:hidden;
   }
   .map-grid{
     position:absolute; inset:0;
@@ -46,7 +46,7 @@
   .zone-seo{ right:40px; top:40px; width:220px; height:140px; background:rgba(47, 111, 237, 0.25); border-color:var(--blue); }
   .zone-siroko{ left:260px; bottom:30px; width:330px; height:140px; background:rgba(255, 210, 63, 0.25); border-color:var(--yellow); }
 
-  /* ROMBO INTERACTIVO CON ANIMACIÓN INCREÍBLE */
+  /* ROMBO INTERACTIVO */
   .rhombus{
     position:absolute; width:48px; height:48px; background:var(--yellow); border:4px solid var(--ink);
     transform:rotate(45deg); animation:pulseRhombus 0.8s infinite alternate;
@@ -61,7 +61,7 @@
   /* PERSONAJES EN EL MAPA */
   .player-sprite{
     position:absolute; transform:translate(-50%, -50%); display:flex; flex-direction:column;
-    align-items:center; z-index:6; transition:all 0.3s ease-out;
+    align-items:center; z-index:6; transition:left 0.05s linear, top 0.05s linear;
   }
   .player-sprite .nametag{
     font-size:0.45rem; background:#000; color:#fff; padding:3px 6px; border:1px solid #fff;
@@ -87,10 +87,14 @@
   .typing-cursor{ display:inline-block; width:8px; height:12px; background:var(--blue); animation:blink 0.6s infinite; }
   @keyframes blink{ 50%{opacity:0;} }
 
-  /* MODAL DE INTRODUCCIÓN CONTEXTUAL */
+  /* ---- MODAL CONTEXTUAL CENTRADO ---- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.75);
+    display:flex; align-items:center; justify-content:center; z-index:999;
+  }
   .intro-modal{
-    position:absolute; z-index:100; max-width:650px; background:#12121c; border:6px solid var(--yellow);
-    box-shadow:0 0 0 6px var(--ink); padding:28px; text-align:center;
+    max-width:650px; width:90%; background:#12121c; border:6px solid var(--yellow);
+    box-shadow:0 0 0 6px var(--ink), 0 20px 40px rgba(0,0,0,0.8); padding:32px; text-align:center;
   }
 </style>
 </head>
@@ -161,9 +165,9 @@ function renderLobby(){
   return wrapper;
 }
 
-// 2. MAPA COLORIDO CON ROMBO ANIMADO QUE CAMBIA DE ZONA
+// 2. MAPA COLORIDO CON MOVIMIENTO DE JOYSTICK
 function renderMap(){
-  if (currentState.inChallenge || currentState.showIntro) {
+  if (currentState.inChallenge) {
     return renderSplitChallenge();
   }
 
@@ -184,16 +188,16 @@ function renderMap(){
 
   const wrapper = el(`
     <div style="display:flex; flex-direction:column; align-items:center;">
-      <h2 style="font-size:0.9rem; color:var(--yellow); margin-bottom:12px; text-shadow:2px 2px 0 #000;">
-        📍 MISIÓN: HAZ CLIC EN EL ROMBO DE ${activeCP.title}
+      <h2 style="font-size:0.85rem; color:var(--yellow); margin-bottom:12px; text-shadow:2px 2px 0 #000;">
+        📍 USA EL JOYSTICK Y DIRÍGETE AL ROMBO DE ${activeCP.title}
       </h2>
       <div id="game-map">
         <div class="map-grid"></div>
 
-        <!-- DEPARTAMENTOS EN LA OFICINA -->
+        <!-- DEPARTAMENTOS DE LA OFICINA -->
         <div class="office-zone zone-hubspot">
           <b style="color:var(--orange);">💻 HUBSPOT</b>
-          <span style="font-size:0.45rem; margin-top:4px;">Secuencias & Email Marketing</span>
+          <span style="font-size:0.45rem; margin-top:4px;">Secuencias & CRM</span>
         </div>
         <div class="office-zone zone-seo">
           <b style="color:var(--blue);">📝 REDACCIÓN SEO</b>
@@ -204,7 +208,7 @@ function renderMap(){
           <span style="font-size:0.45rem; margin-top:4px;">Área de Descanso & Hielos</span>
         </div>
 
-        <!-- ROMBO ANIMADO CAMBIANTE -->
+        <!-- ROMBO ANIMADO DE CHECKPOINT -->
         <div class="rhombus" style="left:${activeCP.x - 24}px; top:${activeCP.y - 24}px;">
           <span>⚡</span>
         </div>
@@ -214,14 +218,33 @@ function renderMap(){
     </div>
   `);
 
-  wrapper.querySelector('#game-map').addEventListener('click', () => {
-    socket.emit('trigger-checkpoint');
-  });
+  // MODAL EXPLICATIVO PREVIO AL RETO CENTRADO
+  if (currentState.showIntro) {
+    const intros = {
+      2: { title:'💻 RETO 1: HUBSPOT & CRM', text:'¡Las secuencias de correo necesitan salir ya! Pulsa 100 veces para enviar la automatización de email marketing.' },
+      3: { title:'📝 RETO 2: REDACCIÓN SEO', text:'¡El blog corporativo necesita el nuevo artículo! Pulsa 100 veces para redactar y homogenizar el protocolo.' },
+      4: { title:'☕ RETO 3: TERRAZA SIROKO', text:'¡Hora del descanso en la terraza! Pulsa 100 veces para preparar el café con hielos sin que se derrita.' }
+    };
+    const info = intros[currentState.currentChallenge];
+    const modalOverlay = el(`
+      <div class="modal-overlay">
+        <div class="intro-modal">
+          <h2 style="color:var(--yellow); font-size:1rem; margin-bottom:16px;">${info.title}</h2>
+          <p style="font-size:0.75rem; line-height:1.8; margin-bottom:24px;">${info.text}</p>
+          <button class="pixel-btn" id="readyBtn" style="background:var(--green);">¡EMPEZAR RETO!</button>
+        </div>
+      </div>
+    `);
+    modalOverlay.querySelector('#readyBtn').addEventListener('click', () => {
+      socket.emit('confirm-intro');
+    });
+    wrapper.appendChild(modalOverlay);
+  }
 
   return wrapper;
 }
 
-// 3. RETOS SPLIT SCREEN Y PANTALLA CONTEXTUAL
+// 3. RETOS SPLIT SCREEN
 function renderSplitChallenge(){
   const room = currentState.currentChallenge;
   const players = Object.values(currentState.players);
@@ -231,7 +254,6 @@ function renderSplitChallenge(){
   const maxPossible = Math.max(1, players.length * 100);
   const progressPct = Math.min(100, Math.round((totalTaps / maxPossible) * 100));
 
-  // FILAS DE CARRERA DE JUGADORES
   const rows = players.map(p => `
     <div class="player-row">
       <span style="min-width:130px; display:flex; align-items:center; gap:6px;">
@@ -294,28 +316,6 @@ function renderSplitChallenge(){
       ${winnerBanner}
     </div>
   `);
-
-  // MODAL CONTEXTUAL PREVIO AL RETO
-  if (currentState.showIntro) {
-    const intros = {
-      2: { title:'💻 RETO 1: HUBSPOT & CRM', text:'¡Las secuencias de correo necesitan salir ya! Pulsa 100 veces para enviar la automatización de email marketing.' },
-      3: { title:'📝 RETO 2: REDACCIÓN SEO', text:'¡El blog corporativo necesita el nuevo artículo! Pulsa 100 veces para redactar y homogenizar el protocolo.' },
-      4: { title:'☕ RETO 3: TERRAZA SIROKO', text:'¡Hora del descanso en la terraza! Pulsa 100 veces para preparar el café con hielos sin que se derrita.' }
-    };
-    const info = intros[currentState.currentChallenge];
-    const modal = el(`
-      <div class="intro-modal">
-        <h2 style="color:var(--yellow); font-size:0.95rem; margin-bottom:16px;">${info.title}</h2>
-        <p style="font-size:0.7rem; line-height:1.8; margin-bottom:24px;">${info.text}</p>
-        <button class="pixel-btn" id="readyBtn" style="background:var(--green);">¡EMPEZAR RETO!</button>
-      </div>
-    `);
-    modal.querySelector('#readyBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      socket.emit('confirm-intro');
-    });
-    wrapper.appendChild(modal);
-  }
 
   return wrapper;
 }
