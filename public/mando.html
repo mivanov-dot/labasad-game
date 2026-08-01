@@ -59,11 +59,29 @@
     <div id="roleDisplay" style="font-size:0.5rem; opacity:0.8; margin-top:4px;"></div>
   </div>
 
-  <!-- JOYSTICK MOVIBLE -->
-  <div id="joystick-container">
-    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.8;">MUEVE TU PERSONAJE CON EL JOYSTICK</p>
-    <div id="joystick-zone"></div>
-  </div>
+ // MOVIMIENTO CON JOYSTICK
+  socket.on('player-move', (dir) => {
+    const player = gameState.players[socket.id];
+    if (player && gameState.room === 1 && !gameState.inChallenge) {
+      const speed = 4;
+      player.x += dir.x * speed;
+      player.y += dir.y * speed;
+
+      // Limitar a los bordes de la pantalla
+      player.x = Math.max(30, Math.min(MAP_WIDTH - 30, player.x));
+      player.y = Math.max(30, Math.min(MAP_HEIGHT - 30, player.y));
+
+      // Detección de colisión con el Rombo Interactivo
+      const dist = Math.hypot(player.x - CHECKPOINT.x, player.y - CHECKPOINT.y);
+      if (dist < CHECKPOINT.radius) {
+        // Al tocar el rombo, entran al reto
+        gameState.inChallenge = true;
+        gameState.room = 2; // Primer reto: HubSpot
+      }
+
+      io.emit('state', gameState);
+    }
+  });
 
   <!-- BOTÓN PARA PULSACIONES -->
   <button id="action-btn" style="display:none;">¡PULSA<br>RÁPIDO!</button>
