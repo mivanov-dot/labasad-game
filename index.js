@@ -1,114 +1,35 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+// Constantes del mapa (al inicio del archivo index.js)
+const MAP_WIDTH = 850;
+const MAP_HEIGHT = 520;
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+// Escuchador de movimiento del Joystick
+socket.on('player-move', (dir) => {
+  const player = gameState.players[socket.id];
+  if (player && gameState.room === 2 && !gameState.showIntro && !gameState.inChallenge) {
+    const speed = 4;
+    player.x += dir.x * speed;
+    player.y += dir.y * speed;
 
-app.use(express.static(path.join(__dirname, 'public')));
+    // Limitar a los bordes de la pantalla
+    player.x = Math.max(30, Math.min(MAP_WIDTH - 30, player.x));
+    player.y = Math.max(30, Math.min(MAP_HEIGHT - 30, player.y));
 
-let gameState = {
-  room: 1,            // 1: Lobby QR, 2: Mapa Oficina, 3: Resumen, 4: Despedida
-  currentChallenge: 2,// 2: HubSpot, 3: SEO, 4: Siroko Coffee
-  showIntro: false,
-  inChallenge: false,
-  players: {},
-  winners: {}
-};
-
-// Coordenadas del rombo animado según el reto activo (Escala 800x500)
-const CHECKPOINTS = {
-  2: { x: 200, y: 150, name: 'Oficina HubSpot & CRM' },
-  3: { x: 600, y: 150, name: 'Redacción SEO & Blog' },
-  4: { x: 400, y: 380, name: 'Terraza Siroko Coffee' }
-};
-
-io.on('connection', (socket) => {
-  socket.on('join-game', (data) => {
-    gameState.players[socket.id] = {
-      id: socket.id,
-      name: data.name || 'Jugador',
-      avatar: data.avatar || '🕹️',
-      role: data.role || 'Equipo LABASAD',
-      x: 360 + Math.random() * 80,
-      y: 230 + Math.random() * 40,
-      taps: 0
+    // Obtener la posición del rombo según el reto activo
+    const cpCoords = {
+      2: { x: 150, y: 110 },
+      3: { x: 710, y: 110 },
+      4: { x: 425, y: 400 }
     };
-    io.emit('state', gameState);
-  });
+    const cp = cpCoords[gameState.currentChallenge];
 
-  socket.on('start-game', () => {
-    if (gameState.room === 1) {
-      gameState.room = 2;
-      io.emit('state', gameState);
-    }
-  });
-
-  socket.on('trigger-checkpoint', () => {
-    if (gameState.room === 2 && !gameState.showIntro && !gameState.inChallenge) {
-      gameState.showIntro = true;
-      io.emit('state', gameState);
-    }
-  });
-
-  socket.on('confirm-intro', () => {
-    gameState.showIntro = false;
-    gameState.inChallenge = true;
-    io.emit('state', gameState);
-  });
-
-  socket.on('tap', () => {
-    const player = gameState.players[socket.id];
-    if (player && gameState.inChallenge) {
-      const ch = gameState.currentChallenge;
-      if (!gameState.winners[ch]) {
-        player.taps += 1;
-
-        // META DE 100 PULSACIONES
-        if (player.taps >= 100) {
-          const achievements = {
-            2: 'Máster en Automatización & Secuencias CRM',
-            3: 'Líder en Protocolo SEO & Redacción Blog',
-            4: 'Barista Pro Siroko: Pulso de Acero ☕'
-          };
-
-          gameState.winners[ch] = {
-            id: player.id,
-            name: player.name,
-            avatar: player.avatar,
-            role: player.role,
-            achievement: achievements[ch]
-          };
-
-          setTimeout(() => {
-            gameState.inChallenge = false;
-            Object.values(gameState.players).forEach(p => p.taps = 0);
-
-            if (ch < 4) {
-              gameState.currentChallenge += 1;
-            } else {
-              gameState.room = 3; // Ir al Resumen Final
-            }
-            io.emit('state', gameState);
-          }, 3500);
-        }
+    // Detección de colisión con el Rombo Interactivo (radio de 40px)
+    if (cp) {
+      const dist = Math.hypot(player.x - cp.x, player.y - cp.y);
+      if (dist < 40) {
+        gameState.showIntro = true; // Abre la ventana explicativa centrada
       }
-      io.emit('state', gameState);
     }
-  });
 
-  socket.on('next-room', () => {
-    if (gameState.room === 3) gameState.room = 4;
     io.emit('state', gameState);
-  });
-
-  socket.on('disconnect', () => {
-    delete gameState.players[socket.id];
-    io.emit('state', gameState);
-  });
+  }
 });
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor LABASAD Quest activo en puerto ${PORT}`));
