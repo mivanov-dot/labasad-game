@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 <style>
   *{box-sizing:border-box; touch-action:none; user-select:none;}
   body{
@@ -23,8 +24,14 @@
     box-shadow:0 6px 0 #0b0b12; cursor:pointer; font-size:0.75rem; color:#0b0b12;
   }
   button.btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
+  
+  #joystick-zone{
+    width:220px; height:220px; position:relative;
+    background:rgba(255,255,255,0.05); border:4px dashed #ff8c42; border-radius:50%;
+  }
+
   #action-btn{
-    width:100%; max-width:300px; height:180px; background:#ff4d5e;
+    width:100%; max-width:300px; height:160px; background:#ff4d5e;
     border:6px solid #0b0b12; box-shadow:0 10px 0 #0b0b12; color:#fff;
     font-family:'Press Start 2P'; font-size:1.3rem; border-radius:16px; margin:auto;
   }
@@ -34,7 +41,7 @@
 <body>
 
 <div id="login-screen" class="login-box">
-  <h2 style="font-size:0.85rem; margin-bottom:8px; color:#ffd23f;">ELAN TU PERSONAJE</h2>
+  <h2 style="font-size:0.85rem; margin-bottom:8px; color:#ffd23f;">ELIGE TU PERSONAJE</h2>
   <input type="text" id="username" placeholder="Tu Nombre" maxlength="10">
   <select id="roleSelect">
     <option value="💵|Millonaria Paid">💵 Millonaria Paid (Presupuesto Top)</option>
@@ -52,10 +59,13 @@
     <div id="roleDisplay" style="font-size:0.5rem; opacity:0.8; margin-top:4px;"></div>
   </div>
 
-  <div id="status-msg" style="font-size:0.65rem; line-height:1.8; margin:auto; padding:20px; background:rgba(255,255,255,0.05); border:3px dashed #ff8c42; text-align:center;">
-    👀 MIRA LA PANTALLA PRINCIPAL
+  <!-- JOYSTICK MOVIBLE -->
+  <div id="joystick-container">
+    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.8;">MUEVE TU PERSONAJE CON EL JOYSTICK</p>
+    <div id="joystick-zone"></div>
   </div>
 
+  <!-- BOTÓN PARA PULSACIONES -->
   <button id="action-btn" style="display:none;">¡PULSA<br>RÁPIDO!</button>
 
   <div style="font-size:0.5rem; opacity:0.4;">LABASAD QUEST 2026</div>
@@ -64,6 +74,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
+let joystick = null;
 
 document.getElementById('joinBtn').addEventListener('click', () => {
   const name = document.getElementById('username').value.trim() || 'Jugador';
@@ -77,26 +88,40 @@ document.getElementById('joinBtn').addEventListener('click', () => {
   document.getElementById('game-controls').style.display = 'flex';
   document.getElementById('playerDisplay').innerText = `${avatar} ${name}`;
   document.getElementById('roleDisplay').innerText = role;
+
+  initJoystick();
 });
 
+function initJoystick() {
+  joystick = nipplejs.create({
+    zone: document.getElementById('joystick-zone'),
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#ffd23f',
+    size: 140
+  });
+
+  joystick.on('move', (evt, data) => {
+    if (data && data.vector) {
+      socket.emit('player-move', { x: data.vector.x, y: -data.vector.y });
+    }
+  });
+
+  joystick.on('end', () => {
+    socket.emit('player-move', { x: 0, y: 0 });
+  });
+}
+
 socket.on('state', (state) => {
-  const statusMsg = document.getElementById('status-msg');
+  const joyContainer = document.getElementById('joystick-container');
   const actionBtn = document.getElementById('action-btn');
   
   if (state.inChallenge) {
-    statusMsg.style.display = 'none';
+    joyContainer.style.display = 'none';
     actionBtn.style.display = 'block';
   } else {
-    statusMsg.style.display = 'block';
+    joyContainer.style.display = 'block';
     actionBtn.style.display = 'none';
-    
-    if (state.room === 2 && !state.showIntro) {
-      statusMsg.innerText = '📍 Misión Lista.\n¡Haz clic en la pantalla grande para empezar!';
-    } else if (state.showIntro) {
-      statusMsg.innerText = '📜 LEYENDO INSTRUCCIONES EN PANTALLA...';
-    } else {
-      statusMsg.innerText = '👀 MIRA LA PANTALLA PRINCIPAL';
-    }
   }
 });
 
