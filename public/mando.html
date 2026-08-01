@@ -2,47 +2,66 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Mando — LABASAD Quest</title>
+<title>LABASAD Quest — Mando</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 <style>
   *{box-sizing:border-box; touch-action:none; user-select:none;}
   body{
     margin:0; height:100vh; background:#12121c; color:#fff6e3;
     font-family:'Press Start 2P', monospace; display:flex; flex-direction:column;
-    align-items:center; justify-content:space-between; padding:24px; text-align:center;
+    align-items:center; justify-content:space-between; padding:20px; overflow:hidden;
   }
-  .login-box{display:flex; flex-direction:column; gap:16px; width:100%; max-width:320px; margin:auto;}
-  input{padding:16px; font-family:'Press Start 2P'; font-size:0.75rem; background:#fff6e3; border:4px solid #0b0b12; text-align:center;}
-  button.btn{
-    padding:20px; background:#3ddc84; font-family:'Press Start 2P'; border:4px solid #0b0b12;
-    box-shadow:0 6px 0 #0b0b12; cursor:pointer; font-size:0.8rem;
+  .header{text-align:center; margin-top:10px;}
+  .player-info{font-size:0.8rem; color:#ffd23f; margin-top:6px;}
+  #joystick-zone{
+    width:220px; height:220px; position:relative;
+    background:rgba(255,255,255,0.05); border:4px dashed #ff8c42; border-radius:50%;
   }
-  button.btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
   #action-btn{
-    width:100%; max-width:300px; height:180px; background:#ff4d5e;
-    border:6px solid #0b0b12; box-shadow:0 10px 0 #0b0b12; color:#fff;
-    font-family:'Press Start 2P'; font-size:1.4rem; border-radius:16px; margin:auto;
+    width:100%; max-width:280px; height:80px; background:#ff4d5e;
+    border:4px solid #0b0b12; box-shadow:0 6px 0 #0b0b12; color:#fff;
+    font-family:'Press Start 2P', monospace; font-size:1.1rem; display:none;
   }
-  #action-btn:active{transform:translateY(8px); box-shadow:0 2px 0 #0b0b12; background:#e03e4f;}
+  #action-btn:active{transform:translateY(4px); box-shadow:0 2px 0 #0b0b12;}
+  .login-box{display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px; margin:auto;}
+  input, select{
+    padding:14px; font-family:'Press Start 2P', monospace; font-size:0.7rem;
+    background:#fff6e3; border:4px solid #0b0b12;
+  }
 </style>
 </head>
 <body>
 
 <div id="login-screen" class="login-box">
-  <h2 style="font-size:0.9rem; margin-bottom:12px;">CREA TU PERFIL</h2>
+  <h2 style="font-size:0.9rem; text-align:center;">CREA TU PERSONAJE</h2>
   <input type="text" id="username" placeholder="Tu Nombre" maxlength="10">
-  <button id="joinBtn" class="btn">¡UNIRSE AL JUEGO!</button>
+  <select id="avatarSelect">
+    <option value="🕹️">🕹️ Gamer</option>
+    <option value="🦊">🦊 Zorro Pixel</option>
+    <option value="👾">👾 Alien</option>
+    <option value="🤖">🤖 Robot</option>
+    <option value="🚀">🚀 Cohete</option>
+  </select>
+  <button id="joinBtn" style="padding:16px; background:#3ddc84; font-family:'Press Start 2P'; border:4px solid #0b0b12;">ENTRAR AL MAPA</button>
 </div>
 
 <div id="game-controls" style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:space-between;">
-  <div style="font-size:0.75rem; color:#ffd23f; margin-top:10px;" id="playerDisplay"></div>
-
-  <div id="status-msg" style="font-size:0.7rem; line-height:1.8; margin:auto; padding:20px; background:rgba(255,255,255,0.05); border:3px dashed #ff8c42;">
-    👀 MIRA LA PANTALLA PRINCIPAL
+  <div class="header">
+    <div style="font-size:0.6rem;">CONTROLLER 2D</div>
+    <div id="playerDisplay" class="player-info"></div>
   </div>
 
-  <button id="action-btn" style="display:none;">¡PULSA<br>RÁPIDO!</button>
+  <!-- ZONA DEL JOYSTICK PARA MOVERSE POR EL MAPA -->
+  <div id="joystick-container">
+    <p style="font-size:0.55rem; text-align:center; margin-bottom:12px; opacity:0.7;">USA EL JOYSTICK PARA MOVERTE</p>
+    <div id="joystick-zone"></div>
+  </div>
+
+  <!-- BOTÓN QUE APARECE SOLO EN LOS RETOS -->
+  <button id="action-btn">¡PULSA RÁPIDO!</button>
 
   <div style="font-size:0.5rem; opacity:0.4;">LABASAD QUEST 2026</div>
 </div>
@@ -50,38 +69,60 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
+let player = null;
+let joystick = null;
 
 document.getElementById('joinBtn').addEventListener('click', () => {
   const name = document.getElementById('username').value.trim() || 'Jugador';
-  socket.emit('join-game', { name });
+  const avatar = document.getElementById('avatarSelect').value;
+  player = { name, avatar };
+  
+  socket.emit('join-game', player);
+  
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-controls').style.display = 'flex';
-  document.getElementById('playerDisplay').innerText = `👤 ${name}`;
+  document.getElementById('playerDisplay').innerText = `${avatar} ${name}`;
+  
+  initJoystick();
 });
 
+function initJoystick() {
+  joystick = nipplejs.create({
+    zone: document.getElementById('joystick-zone'),
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#ffd23f',
+    size: 140
+  });
+
+  // Enviar vector de movimiento en tiempo real al servidor
+  joystick.on('move', (evt, data) => {
+    if (data && data.vector) {
+      socket.emit('player-move', { x: data.vector.x, y: -data.vector.y });
+    }
+  });
+
+  joystick.on('end', () => {
+    socket.emit('player-move', { x: 0, y: 0 });
+  });
+}
+
+// Escuchar cambios de fase (Mapa vs Reto)
 socket.on('state', (state) => {
-  const statusMsg = document.getElementById('status-msg');
+  const joyContainer = document.getElementById('joystick-container');
   const actionBtn = document.getElementById('action-btn');
   
-  if (state.inChallenge) {
-    statusMsg.style.display = 'none';
+  // Si estamos en una sala de reto (2, 3, 4), ocultamos el joystick y mostramos el botón de pulsación
+  if (state.room >= 2 && state.room <= 4 && state.inChallenge) {
+    joyContainer.style.display = 'none';
     actionBtn.style.display = 'block';
   } else {
-    statusMsg.style.display = 'block';
+    joyContainer.style.display = 'block';
     actionBtn.style.display = 'none';
-    
-    if (state.room === 2 && !state.showIntro) {
-      statusMsg.innerText = '📍 PREPÁRATE...\n¡Toca la pantalla grande para iniciar la misión!';
-    } else if (state.showIntro) {
-      statusMsg.innerText = '📜 LEYENDO INSTRUCCIONES EN PANTALLA...';
-    } else {
-      statusMsg.innerText = '👀 MIRA LA PANTALLA PRINCIPAL';
-    }
   }
 });
 
 document.getElementById('action-btn').addEventListener('click', () => {
-  if (navigator.vibrate) navigator.vibrate(25);
   socket.emit('tap');
 });
 </script>
