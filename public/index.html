@@ -2,8 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>LABASAD Office Quest</title>
+<title>LABASAD Office Quest 2D — Host</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -12,83 +13,89 @@
     --orange:#ff8c42; --yellow:#ffd23f; --green:#3ddc84; --red:#ff4d5e;
   }
   *{box-sizing:border-box;}
-  body{margin:0; height:100vh; overflow:hidden; background:#0b0b12; font-family:'Press Start 2P', monospace; color:var(--paper);}
+  html,body{margin:0; height:100%; overflow:hidden; background:#000; font-family:'Press Start 2P', monospace; color:var(--paper);}
   #app{width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; position:relative;}
 
   .pixel-box{
     border:6px solid var(--ink); box-shadow:0 0 0 6px var(--paper), 0 0 0 12px var(--ink);
-    background:rgba(11, 11, 18, 0.95); padding:28px; text-align:center; position:relative; z-index:10;
-  }
-  .pixel-btn{
-    font-family:'Press Start 2P'; padding:16px 28px; background:var(--orange); color:var(--ink);
-    border:4px solid var(--ink); box-shadow:6px 6px 0 var(--ink); cursor:pointer; margin-top:20px;
-  }
-  .pixel-btn:active{transform:translate(4px,4px); box-shadow:2px 2px 0 var(--ink);}
-
-  /* MAPA PRINCIPAL A PANTALLA COMPLETA */
-  #map-container{
-    width:960px; height:540px; border:8px solid var(--paper); box-shadow:0 0 30px rgba(0,0,0,0.9);
-    position:relative; overflow:hidden; background-size:100% 100%; cursor:pointer;
+    background:rgba(18, 18, 28, 0.95); padding:24px; border-radius:2px; text-align:center;
   }
 
-  /* PERSONAJES CON SPRITES REALES */
-  .pixel-avatar{
-    position:absolute; transform:translate(-50%, -100%); display:flex; flex-direction:column; align-items:center;
-    z-index:5; transition:all 0.3s ease;
+  /* ---- MAPA 2D ---- */
+  #game-canvas-container{
+    width:800px; height:500px; background:#2a2438; border:8px solid var(--paper);
+    box-shadow:0 0 20px rgba(0,0,0,0.8); position:relative; overflow:hidden;
   }
-  .pixel-avatar img{ width:36px; height:36px; image-rendering:pixelated; filter:drop-shadow(0 4px 0 rgba(0,0,0,0.5)); }
-  .pixel-avatar .nametag{
-    font-size:0.45rem; background:#000; color:#fff; padding:3px 6px; border:1px solid #fff;
-    white-space:nowrap; margin-bottom:2px; box-shadow:2px 2px 0 #000;
+  .map-grid{
+    position:absolute; inset:0;
+    background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
-
-  /* ROMBO CHECKPOINT ANIMADO */
-  .rhombus{
-    position:absolute; width:44px; height:44px; background:var(--yellow); border:4px solid var(--ink);
-    transform:rotate(45deg); animation:pulse 0.8s infinite alternate; display:flex; align-items:center; justify-content:center;
-    z-index:6; cursor:pointer;
+  .office-desk{
+    position:absolute; background:#5c3c21; border:4px solid var(--ink); color:#fff;
+    font-size:0.5rem; display:flex; align-items:center; justify-content:center;
   }
-  @keyframes pulse{ from{transform:rotate(45deg) scale(0.9); box-shadow:0 0 10px var(--yellow);} to{transform:rotate(45deg) scale(1.25); box-shadow:0 0 30px var(--yellow);} }
-
-  /* RETOS SPLIT SCREEN SOBRE FONDO OFICINA OSCURECIDO */
-  .split-screen{ display:flex; width:960px; height:540px; gap:20px; position:relative; z-index:5; }
-  .overlay-bg{ position:absolute; inset:0; background:rgba(11,11,18,0.85); backdrop-filter:blur(3px); }
+  .checkpoint-rhombus{
+    position:absolute; left:375px; top:125px; width:50px; height:50px;
+    background:var(--yellow); border:4px solid var(--ink); transform:rotate(45deg);
+    animation:pulse 1.2s infinite alternate; display:flex; align-items:center; justify-content:center;
+  }
+  @keyframes pulse{ from{transform:rotate(45deg) scale(0.9); box-shadow:0 0 10px var(--yellow);} to{transform:rotate(45deg) scale(1.1); box-shadow:0 0 25px var(--yellow);} }
   
-  .left-panel{ flex:1.2; background:rgba(0,0,0,0.8); border:4px solid var(--paper); padding:20px; z-index:2; }
-  .right-panel{ flex:1; background:rgba(0,0,0,0.85); border:4px solid var(--paper); padding:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:2; text-align:center; }
+  .player-sprite{
+    position:absolute; width:40px; height:40px; transform:translate(-50%, -50%);
+    display:flex; flex-direction:column; align-items:center; transition:left 0.05s linear, top 0.05s linear;
+  }
+  .player-sprite .name-tag{
+    font-size:0.45rem; background:rgba(0,0,0,0.7); padding:2px 4px; border-radius:3px;
+    white-space:nowrap; margin-bottom:2px; border:1px solid var(--paper);
+  }
+  .player-sprite .avatar-icon{font-size:1.6rem;}
 
-  .player-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:0.6rem; }
-  .bar-outer{ flex:1; height:20px; background:#000; border:2px solid var(--paper); }
-  .bar-inner{ height:100%; background:var(--green); transition:width 0.1s; }
+  /* ---- RETOS SPLIT SCREEN ---- */
+  .split-screen{display:flex; width:1000px; height:550px; gap:20px;}
+  .left-panel{flex:1.2; background:rgba(0,0,0,0.6); border:4px solid var(--ink); padding:16px;}
+  .right-panel{flex:1; background:rgba(0,0,0,0.8); border:4px solid var(--ink); padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative;}
 
-  /* MODAL INTRODUCCIÓN CONTEXTUAL */
-  .intro-modal{
-    position:absolute; z-index:100; max-width:650px; background:var(--ink); border:6px solid var(--yellow); padding:28px; text-align:center;
+  .player-row{display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.6rem;}
+  .bar-outer{flex:1; height:18px; background:#000; border:2px solid var(--paper);}
+  .bar-inner{height:100%; background:var(--green); transition:width 0.1s;}
+
+  /* ANIMACIÓN RETO 2: BLOG SEO (Documento escribiéndose) */
+  .doc-animation{
+    width:220px; height:280px; background:#fff; color:#0b0b12; padding:16px;
+    border:4px solid var(--ink); font-size:0.5rem; line-height:1.6; text-align:left; overflow:hidden;
+    box-shadow:6px 6px 0 var(--blue);
+  }
+  .typing-cursor{display:inline-block; width:8px; height:12px; background:var(--blue); animation:blink 0.6s infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ANIMACIÓN RETO 3: SIROKO COFFEE (Vaso llenándose) */
+  .coffee-cup{
+    width:140px; height:200px; border:6px solid var(--paper); border-top:none;
+    border-radius:0 0 20px 20px; position:relative; overflow:hidden; background:rgba(255,255,255,0.1);
+  }
+  .coffee-liquid{
+    position:absolute; bottom:0; width:100%; background:#6f4e37; transition:height 0.2s;
+  }
+  .ice-cube{position:absolute; font-size:1.5rem; animation:floatIce 2s infinite alternate;}
+  @keyframes floatIce{from{transform:translateY(0);} to{transform:translateY(-8px);}}
+
+  /* QR OVERLAY EN MAPA */
+  .qr-overlay{
+    position:absolute; right:20px; top:20px; background:#fff; padding:10px;
+    border:4px solid var(--ink); text-align:center; color:#000; font-size:0.5rem;
   }
 </style>
 </head>
 <body>
 <div id="app"></div>
 
-<!-- AUDIOS (Con rutas exactas coincidiendo con las carpetas de tu GitHub) -->
-<audio id="bgm" src="Audio/musica.mp3" loop></audio>
-<audio id="sfx-win" src="Audio/logro.mp3"></audio>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 let currentState = null;
-let playedWinSFX = false;
-
-function startBGM() {
-  const audio = document.getElementById('bgm');
-  if (audio) { audio.volume = 0.4; audio.play().catch(()=>{}); }
-}
-
-function playWinSFX() {
-  const sfx = document.getElementById('sfx-win');
-  if (sfx) { sfx.currentTime = 0; sfx.play().catch(()=>{}); }
-}
 
 socket.on('state', (state) => {
   currentState = state;
@@ -106,171 +113,144 @@ function render(){
   app.innerHTML = '';
   if (!currentState) return;
 
-  if (currentState.room === 1) app.appendChild(renderLobby());
-  else if (currentState.room === 2) app.appendChild(renderMap());
-  else if (currentState.room === 3 || currentState.inChallenge || currentState.showIntro) app.appendChild(renderChallengeStage());
-  else if (currentState.room === 4) app.appendChild(renderSummary());
-  else if (currentState.room === 5) app.appendChild(renderGoodbye());
+  if (currentState.room === 1 && !currentState.inChallenge) {
+    app.appendChild(renderMap());
+  } else if (currentState.room >= 2 && currentState.room <= 4) {
+    app.appendChild(renderSplitChallenge());
+  } else if (currentState.room === 5) {
+    app.appendChild(renderSummary());
+  } else if (currentState.room === 6) {
+    app.appendChild(renderGoodbye());
+  }
 }
 
-// 1. LOBBY DE BIENVENIDA
-function renderLobby(){
+// ---------- MAPA 2D INTERACTIVO ----------
+function renderMap(){
   const players = Object.values(currentState.players);
-  const avatarsHtml = players.map(p => `
-    <div style="background:var(--paper); color:#000; padding:8px 12px; border:3px solid #000; font-size:0.6rem; display:flex; align-items:center; gap:6px;">
-      <img src="${p.charImg}" style="width:20px; height:20px; image-rendering:pixelated;">
-      <span>${p.name}</span>
+  const playersSprites = players.map(p => `
+    <div class="player-sprite" style="left:${p.x}px; top:${p.y}px;">
+      <span class="name-tag">${p.name}</span>
+      <span class="avatar-icon">${p.avatar}</span>
     </div>
   `).join('');
 
   const wrapper = el(`
-    <div class="pixel-box" style="max-width:850px;">
-      <h1 style="font-size:1.8rem; margin-bottom:12px;">🏢 LABASAD OFFICE QUEST</h1>
-      <p style="font-size:0.75rem; line-height:1.8;">Escanea el código QR con tu móvil para unirte como mando.<br>¡Todos avanzáis juntos en la aventura!</p>
-      <div id="qr-holder" style="background:#fff; padding:16px; display:inline-block; border:6px solid #000; margin:20px 0;"></div>
-      <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:16px 0;">${avatarsHtml || '<p style="font-size:0.6rem;">Esperando jugadores...</p>'}</div>
-      <button class="pixel-btn" id="startBtn">▶ INICIAR AVENTURA</button>
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <h1 style="font-size:1.2rem; margin-bottom:12px;">🏢 OFICINA LABASAD — EXPLORACIÓN 2D</h1>
+      <p style="font-size:0.6rem; color:var(--yellow); margin-bottom:16px;">
+        Mueve tu personaje con el Joystick del móvil hasta el ROMBO AMARILLO para iniciar el reto.
+      </p>
+
+      <div id="game-canvas-container">
+        <div class="map-grid"></div>
+        <!-- Muebles de la oficina -->
+        <div class="office-desk" style="left:100px; top:100px; width:140px; height:70px;">MESA HUBSPOT 💻</div>
+        <div class="office-desk" style="left:560px; top:100px; width:140px; height:70px;">MESA SEO 📝</div>
+        <div class="office-desk" style="left:330px; top:360px; width:140px; height:70px;">TERRAZA CAFÉ ☕</div>
+
+        <!-- ROMBO INTERACTIVO -->
+        <div class="checkpoint-rhombus">
+          <span style="transform:rotate(-45deg); font-size:1.2rem;">⚡</span>
+        </div>
+
+        <!-- Sprites de Jugadores -->
+        ${playersSprites}
+
+        <!-- QR flotante para que se unan más -->
+        <div class="qr-overlay">
+          <div id="map-qr"></div>
+          <p style="margin-top:4px;">ÚNETE CON EL MÓVIL</p>
+        </div>
+      </div>
     </div>
   `);
 
   setTimeout(() => {
-    new QRCode(wrapper.querySelector('#qr-holder'), {
-      text: 'https://labasad-game.onrender.com/mando.html',
-      width: 220, height: 220
-    });
+    const qrDiv = wrapper.querySelector('#map-qr');
+    if (qrDiv) {
+      new QRCode(qrDiv, {
+        text: 'https://labasad-game.onrender.com/mando.html',
+        width: 100, height: 100
+      });
+    }
   }, 50);
 
-  wrapper.querySelector('#startBtn').addEventListener('click', () => {
-    startBGM();
-    socket.emit('start-game');
-  });
-
   return wrapper;
 }
 
-// 2. MAPA OFICINA
-function renderMap(){
-  playedWinSFX = false;
+// ---------- RETOS SPLIT-SCREEN CON ANIMACIÓN DINÁMICA ----------
+function renderSplitChallenge(){
+  const room = currentState.room;
   const players = Object.values(currentState.players);
-  
-  const spritesHtml = players.map(p => `
-    <div class="pixel-avatar" style="left:${p.x}%; top:${p.y}%;">
-      <span class="nametag">${p.name}</span>
-      <img src="${p.charImg}" alt="character">
-    </div>
-  `).join('');
+  const winner = currentState.winners[room];
 
-  const cpNames = { 2: 'HUBSPOT & CRM', 3: 'SEO BLOG', 4: 'SIROKO CAFÉ' };
-  const cpCoords = { 2: {x:22, y:30}, 3: {x:76, y:30}, 4: {x:50, y:20} };
-  const activeCP = cpCoords[currentState.currentChallenge];
-
-  const wrapper = el(`
-    <div style="display:flex; flex-direction:column; align-items:center;">
-      <h2 style="font-size:0.9rem; color:var(--yellow); margin-bottom:12px;">📍 MISIÓN: ACTIVA EL RETO DE ${cpNames[currentState.currentChallenge]}</h2>
-      <div id="map-container" style="background-image: url('Fondos/oficina.png');">
-        <div class="rhombus" style="left:${activeCP.x}%; top:${activeCP.y}%;" id="rhombusBtn">⚡</div>
-        ${spritesHtml}
-      </div>
-    </div>
-  `);
-
-  // Al hacer clic en el rombo o en el mapa, se activa el reto
-  wrapper.querySelector('#map-container').addEventListener('click', () => {
-    socket.emit('trigger-checkpoint');
-  });
-
-  if (currentState.showIntro) {
-    const intros = {
-      2: { title:'💻 RETO 1: HUBSPOT & CRM', text:'¡Las secuencias de correo necesitan atención! Pulsa 100 veces para enviar la automatización de emails.' },
-      3: { title:'📝 RETO 2: REDACCIÓN SEO', text:'¡El blog de LABASAD lanza nuevo artículo! Pulsa 100 veces para redactar el protocolo.' },
-      4: { title:'☕ RETO 3: SIROKO COFFEE', text:'¡Momento de descanso! Pulsa 100 veces para preparar el café para todo el equipo.' }
-    };
-    const info = intros[currentState.currentChallenge];
-    const modal = el(`
-      <div class="intro-modal">
-        <h2 style="color:var(--yellow); font-size:1rem; margin-bottom:16px;">${info.title}</h2>
-        <p style="font-size:0.75rem; line-height:1.8; margin-bottom:24px;">${info.text}</p>
-        <button class="pixel-btn" id="readyBtn" style="background:var(--green);">¡EMPEZAR RETO!</button>
-      </div>
-    `);
-    modal.querySelector('#readyBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      socket.emit('confirm-intro');
-    });
-    wrapper.appendChild(modal);
-  }
-
-  return wrapper;
-}
-
-// 3. RETOS SPLIT SCREEN Y VICTORIA
-function renderChallengeStage(){
-  const players = Object.values(currentState.players);
-  const ch = currentState.currentChallenge;
-  const winner = currentState.winners[ch];
-
-  if (winner && !playedWinSFX) {
-    playWinSFX();
-    playedWinSFX = true;
-  }
-
+  // Cálculo de toques totales del equipo para animaciones
   const totalTaps = players.reduce((sum, p) => sum + p.taps, 0);
-  const progressPct = Math.min(100, Math.round((totalTaps / (players.length * 100)) * 100));
+  const maxPossible = Math.max(1, players.length * 50);
+  const progressPct = Math.min(100, Math.round((totalTaps / maxPossible) * 100));
 
-  const rows = players.map(p => `
-    <div class="player-row">
-      <span style="min-width:120px; display:flex; align-items:center; gap:6px;">
-        <img src="${p.charImg}" style="width:20px; height:20px; image-rendering:pixelated;">
-        <span>${p.name}</span>
-      </span>
-      <div class="bar-outer"><div class="bar-inner" style="width:${p.taps}%;"></div></div>
-      <span>${p.taps}/100</span>
-    </div>
-  `).join('');
-
-  let rightGraphic = '';
-  if (ch === 2) {
-    rightGraphic = `
-      <h3 style="font-size:0.8rem; color:var(--orange); margin-bottom:16px;">AUTOMATIZACIÓN HUBSPOT</h3>
-      <div style="font-size:0.7rem; line-height:2;">EMAILS ENVIADOS: ${totalTaps * 15}<br>LEADS QUALIFIED: ${totalTaps}</div>
-    `;
-  } else if (ch === 3) {
-    const text = "PROTOCOLOS SEO LABASAD 2026: Guía completa de optimización de contenidos corporativos y gestión de incidencias en Polser...";
-    const visibleText = text.substring(0, Math.floor((progressPct/100) * text.length));
-    rightGraphic = `
-      <h3 style="font-size:0.8rem; color:var(--blue); margin-bottom:16px;">REDACTANDO ARTÍCULO SEO</h3>
-      <div style="width:240px; height:240px; background:#fff; color:#000; padding:16px; font-size:0.5rem; text-align:left; border:4px solid #000;">
-        ${visibleText}<span style="display:inline-block; width:8px; height:12px; background:var(--blue);"></span>
+  // Filas de jugadores (Panel Izquierdo)
+  const rows = players.map(p => {
+    const pct = Math.min(100, Math.round((p.taps / 50) * 100));
+    return `
+      <div class="player-row">
+        <span>${p.avatar} ${p.name}</span>
+        <div class="bar-outer"><div class="bar-inner" style="width:${pct}%;"></div></div>
+        <span>${p.taps}/50</span>
       </div>
     `;
-  } else if (ch === 4) {
+  }).join('');
+
+  // CONTENIDO DINÁMICO PANEL DERECHO SEGÚN SALA
+  let rightGraphic = '';
+  
+  if (room === 2) {
+    // Reto 1: HubSpot / Secuencias
     rightGraphic = `
-      <h3 style="font-size:0.8rem; color:var(--yellow); margin-bottom:16px;">TERRAZA SIROKO COFFEE</h3>
-      <p style="font-size:0.65rem; line-height:2;">¡SIRVIENDO CAFÉ PARA EL EQUIPO!<br><br>PROGRESO: <b>${progressPct}%</b></p>
+      <h3 style="font-size:0.7rem; color:var(--orange); margin-bottom:12px;">ENVIANDO SECUENCIAS HUBSPOT</h3>
+      <div style="font-size:3rem; margin-bottom:10px;">📧 ➔ 📈</div>
+      <p style="font-size:0.6rem; color:var(--green);">Emails Enviados: ${totalTaps * 12}</p>
+    `;
+  } else if (room === 3) {
+    // Reto 2: Redacción SEO (Texto escribiéndose)
+    const textSample = "PROTOCOLOS BLOG LABASAD 2026: Optimización de artículos SEO, estructura de encabezados H2/H3, integración de palabras clave y atención de incidencias en Polser...";
+    const visibleChars = Math.floor((progressPct / 100) * textSample.length);
+    rightGraphic = `
+      <h3 style="font-size:0.7rem; color:var(--blue); margin-bottom:12px;">REDACTANDO ARTÍCULO SEO</h3>
+      <div class="doc-animation">
+        <b>DRAFT_PROTOCOL.DOC</b><br><br>
+        ${textSample.substring(0, visibleChars)}<span class="typing-cursor"></span>
+      </div>
+    `;
+  } else if (room === 4) {
+    // Reto 3: Siroko Coffee (Vaso llenándose)
+    rightGraphic = `
+      <h3 style="font-size:0.7rem; color:var(--yellow); margin-bottom:12px;">LLENANDO CAFÉ CON HIELOS</h3>
+      <div class="coffee-cup">
+        <div class="coffee-liquid" style="height:${progressPct}%;"></div>
+        <span class="ice-cube" style="left:20px; top:40px;">🧊</span>
+        <span class="ice-cube" style="left:70px; top:60px;">🧊</span>
+      </div>
+      <p style="font-size:0.55rem; margin-top:10px;">¡Cuidado no lo vuelques!</p>
     `;
   }
-
-  const bgPath = ch === 4 ? 'Fondos/cafeteria.png' : 'Fondos/oficina.png';
 
   const winnerBanner = winner ? `
-    <div class="pixel-box" style="position:absolute; z-index:20; background:rgba(11,11,18,0.95);">
-      <h2 style="color:var(--yellow); margin-bottom:12px;">🏆 ¡RETO SUPERADO! 🏆</h2>
-      <p style="font-size:0.8rem;">Ganador: <b>${winner.name}</b></p>
-      <p style="font-size:0.65rem; color:var(--green); margin-top:8px;">${winner.achievement}</p>
+    <div class="pixel-box" style="position:absolute; inset:20px; z-index:10; background:rgba(11,11,18,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <h2 style="color:var(--yellow);">🏆 ¡RETO SUPERADO! 🏆</h2>
+      <p style="margin:16px 0;">Ganador: <b>${winner.avatar} ${winner.name}</b></p>
+      <p style="font-size:0.7rem; color:var(--green);">${winner.achievement}</p>
     </div>
   ` : '';
 
   const wrapper = el(`
-    <div id="map-container" style="background-image:url('${bgPath}'); display:flex; align-items:center; justify-content:center;">
-      <div class="overlay-bg"></div>
-      <div class="split-screen">
-        <div class="left-panel">
-          <h3 style="font-size:0.8rem; margin-bottom:16px; color:var(--yellow);">⚡ CARRERA DE 100 CLICS</h3>
-          ${rows}
-        </div>
-        <div class="right-panel">
-          ${rightGraphic}
-        </div>
+    <div class="split-screen" style="position:relative;">
+      <div class="left-panel">
+        <h2 style="font-size:0.9rem; margin-bottom:16px;">⚡ CARRERA DE PULSACIONES</h2>
+        ${rows}
+      </div>
+      <div class="right-panel">
+        ${rightGraphic}
       </div>
       ${winnerBanner}
     </div>
@@ -279,29 +259,36 @@ function renderChallengeStage(){
   return wrapper;
 }
 
-// 4. RESUMEN DE PRÁCTICAS
+// ---------- SALA 5: RESUMEN ----------
 function renderSummary(){
   const winners = currentState.winners;
-  const rows = [2,3,4].map(r => winners[r] ? `<tr><td>${winners[r].name}</td><td>${winners[r].achievement}</td></tr>` : '').join('');
+  const rows = [2,3,4].map(r => {
+    const w = winners[r];
+    if (!w) return '';
+    return `<tr><td>${w.avatar} ${w.name}</td><td>${w.achievement}</td></tr>`;
+  }).join('');
+
   const wrapper = el(`
-    <div class="pixel-box" style="max-width:850px;">
-      <h1 style="font-size:1.4rem;">📊 RESUMEN DE PRÁCTICAS LABASAD</h1>
-      <table style="width:100%; margin:20px 0; font-size:0.65rem; border-collapse:collapse;">
-        <tr style="background:var(--blue); color:#fff;"><th>Ganador</th><th>Logro</th></tr>
+    <div class="pixel-box" style="max-width:900px;">
+      <h1>📊 APRENDIZAJES DE LAS PRÁCTICAS</h1>
+      <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:0.65rem;">
+        <tr style="background:var(--blue);"><th>Ganador</th><th>Logro Desbloqueado</th></tr>
         ${rows}
       </table>
-      <button class="pixel-btn" id="nextBtn" style="background:var(--green);">➡ DESPEDIDA</button>
+      <button class="pixel-btn" id="nextBtn" style="padding:16px 24px; background:var(--green); font-family:'Press Start 2P'; cursor:pointer;">➡ DESPEDIDA</button>
     </div>
   `);
   wrapper.querySelector('#nextBtn').addEventListener('click', () => socket.emit('next-room'));
   return wrapper;
 }
 
+// ---------- SALA 6: DESPEDIDA ----------
 function renderGoodbye(){
   return el(`
     <div class="pixel-box" style="max-width:800px;">
       <h1>🎉 GAME OVER — ¡VICTORIA! 🎉</h1>
-      <p style="line-height:2; margin-top:16px;">¡Muchas gracias a todo el equipo de <b>LABASAD</b>!<br>Prácticas completadas con éxito. 👾</p>
+      <p style="line-height:2;">Gracias a todo el equipo de <b>LABASAD</b>.<br>
+      ¡Una práctica inolvidable! 👾</p>
     </div>
   `);
 }
